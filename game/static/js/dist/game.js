@@ -632,6 +632,8 @@ acwing_login() {
         url: "https://app946.acapp.acwing.com.cn/settings/acwing/web/apply_code/",
         type: "GET",
         success: function(resp) {
+            console.log("called from acwing-login-function");
+            console.log(resp);
             if (resp.result === "success") {
                 window.location.replace(resp.apply_code_url);
             }
@@ -746,7 +748,37 @@ logout_on_remote() // 在远程服务器上登出
         this.$login.show();
     }
 
-    getinfo() // 获取信息
+    acapp_login(appid, redirect_uri, scope, state) {
+        let outer = this;
+
+        this.root.AcWingOS.api.oauth2.authorize(appid, redirect_uri, scope, state, function(resp) {
+            if (resp.result === "success") {
+                outer.username = resp.username;
+                outer.photo = resp.photo;
+                outer.hide();
+                outer.root.menu.show();
+            }
+        });
+    }
+
+
+
+    getinfo_acapp() {
+        let outer = this;
+
+        $.ajax({
+            url: "https://app946.acapp.acwing.com.cn/settings/acwing/acapp/apply_code/",
+            type: "GET",
+            success: function(resp) {
+                if (resp.result === "success") {
+                    outer.acapp_login(resp.appid, resp.redirect_uri, resp.scope, resp.state);
+                }
+            }
+        });
+    }
+
+
+    getinfo_web() // 获取信息
     {
         let outer = this;
 
@@ -786,8 +818,13 @@ logout_on_remote() // 在远程服务器上登出
 
     start()
     {   
-        this.getinfo(); // 一进入网页就要先获取信息
-        this.add_listening_events();
+        if (this.platform === "ACAPP") {
+            this.getinfo_acapp();
+        } else {
+            this.getinfo_web();
+            this.add_listening_events();
+        }
+
     }
 }export class AcGame {
     constructor(id,AcWingOS) {
