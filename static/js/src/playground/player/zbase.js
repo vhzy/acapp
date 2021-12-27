@@ -1,5 +1,5 @@
 class Player extends AcGameObject {
-    constructor(playground, x, y, radius, color, speed, is_me) {
+    constructor(playground, x, y, radius, color, speed, character,username,photo) {
         super();
         this.x = x;
         this.y = y;
@@ -7,7 +7,9 @@ class Player extends AcGameObject {
         this.ctx = this.playground.game_map.ctx;
         this.radius = radius;
         this.color = color;
-        this.is_me = is_me;
+        this.character = character;
+        this.username = username;
+        this.photo = photo;
         this.speed = speed;
         this.move_length = 0;
         this.vx = 0;
@@ -16,23 +18,23 @@ class Player extends AcGameObject {
         this.damage_y = 0;
         this.damage_speed = speed;
         this.friction = 0.9;
-        this.eps = 0.1;
+        this.eps = 0.01;
         this.cur_skill = null;
         this.spent_time = 0;
-
-        if(this.is_me){
+        this.fireballs=[];
+        if(this.character !="robot" ){
             this.img = new Image();
-            this.img.src = this.playground.root.settings.photo;
+            this.img.src = this.photo;
         }
     }
 
     start() {
-        if (this.is_me) {
+        if (this.character === "me") {
             this.add_listening_events();
         }
-        else {
-            let tx = Math.random() * this.playground.width;
-            let ty = Math.random() * this.playground.height;
+        else if(this.character==="robot"){
+            let tx = Math.random() * this.playground.width / this.playground.scale;
+            let ty = Math.random() * this.playground.height / this.playground.scale;
             this.move_to(tx, ty);
         }
     }
@@ -45,12 +47,30 @@ class Player extends AcGameObject {
         this.playground.game_map.$canvas.mousedown(function (e) {
             const rect=outer.ctx.canvas.getBoundingClientRect();
             if (e.which === 3) {
-                outer.move_to(e.clientX-rect.left, e.clientY-rect.top);
-            }
-            else if (e.which === 1) {
-                if (outer.cur_skill === "fireball") {
-                    outer.shoot_fireball(e.clientX-rect.left, e.clientY-rect.top);
+                let tx = (e.clientX - rect.left) / outer.playground.scale;
+                let ty = (e.clientY - rect.top) / outer.playground.scale;
+                outer.move_to(tx, ty);
+
+                if (outer.playground.mode === "multi mode") {
+                    outer.playground.mps.send_move_to(tx, ty);
                 }
+
+            }
+            
+            else if (e.which === 1) {
+                let tx = (e.clientX - rect.left) / outer.playground.scale;
+                let ty = (e.clientY - rect.top) / outer.playground.scale;
+                if (outer.cur_skill === "fireball") {
+
+
+                    let fireball = outer.shoot_fireball(tx, ty);
+
+                    if (outer.playground.mode === "multi mode") {
+                        outer.playground.mps.send_shoot_fireball(tx, ty, fireball.uuid);
+                    }
+                } 
+
+    
                 outer.cur_skill = null;
             }
         });
@@ -67,14 +87,28 @@ class Player extends AcGameObject {
 
     shoot_fireball(tx, ty) {
         let x = this.x, y = this.y;
-        let radius = this.playground.height * 0.01;
+        let radius = 0.01;
         let angle = Math.atan2(ty - this.y, tx - this.x);
         let vx = Math.cos(angle), vy = Math.sin(angle);
         let color = "orange";
-        let speed = this.playground.height * 0.5;
-        let move_length = this.playground.height * 1;
-        new FireBall(this.playground, this, x, y, radius, vx, vy, color, speed, move_length, this.playground.height * 0.01);
+        let speed = 0.5;
+        let move_length = 1;
+        let fireball = new FireBall(this.playground, this, x, y, radius, vx, vy, color, speed, move_length,  0.01);
+        this.fireballs.push(fireball);
+        return fireball;
     }
+
+    destroy_fireball(uuid) {
+        for (let i = 0; i < this.fireballs.length; i ++ ) {
+            let fireball = this.fireballs[i];
+            if (fireball.uuid === uuid) {
+                fireball.destroy();
+                break;
+            }
+        }
+    }
+
+
 
     get_dist(x1, y1, x2, y2) {
         let dx = x1 - x2;
@@ -105,7 +139,7 @@ class Player extends AcGameObject {
         }
 
         this.radius -= damage;
-        if (this.radius < 10) {
+        if (this.radius < this.eps) {
             this.destory();
             return false;
         }
@@ -119,15 +153,20 @@ class Player extends AcGameObject {
 
 
     update() {
+        this.update_move();
+        this.render();
+    }
+
+    update_move(){
         this.spent_time += this.timedelta / 1000;
-        if (!this.is_me && this.spent_time > 4 && Math.random() < 1 / 300.0) {
+        if (this.character ==="robot" && this.spent_time > 4 && Math.random() < 1 / 300.0) {
             let player = this.playground.players[Math.floor(Math.random() * this.playground.players.length)];
             let tx = player.x+player.speed*player.vx*this.timedelta/1000*0.3;
             let ty = player.x+player.speed*player.vy*this.timedelta/1000*0.3;
             this.shoot_fireball(tx,ty);
         }
 
-        if (this.damage_speed > 10) {
+        if (this.damage_speed > this.eps) {
             this.vx = this.vy = 0;
             this.move_length = 0;
             this.x += this.damage_x * this.damage_speed * this.timedelta / 1000;
@@ -138,9 +177,9 @@ class Player extends AcGameObject {
             if (this.move_length < this.eps) {
                 this.move_length = 0;
                 this.vx = this.vy = 0;
-                if (!this.is_me) {
-                    let tx = Math.random() * this.playground.width;
-                    let ty = Math.random() * this.playground.height;
+                if (this.character === "robot") {
+                    let tx = Math.random() * this.playground.width / this.playground.scale;
+                    let ty = Math.random() * this.playground.height/ this.playground.scale;
                     this.move_to(tx, ty);
                 }
             }
@@ -151,22 +190,22 @@ class Player extends AcGameObject {
                 this.move_length -= moved;
             }
         }
-        this.render();
     }
 
     render() {
-        if(this.is_me){
+        let scale = this.playground.scale;
+        if(this.character !== "robot"){
             this.ctx.save();
             this.ctx.beginPath();
-            this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+            this.ctx.arc(this.x * scale, this.y* scale, this.radius* scale, 0, Math.PI * 2, false);
             this.ctx.stroke();
             this.ctx.clip();
-            this.ctx.drawImage(this.img, this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2); 
+            this.ctx.drawImage(this.img, (this.x - this.radius) * scale, (this.y - this.radius) * scale, this.radius * 2* scale, this.radius * 2* scale); 
             this.ctx.restore();
         }
         else{
             this.ctx.beginPath();
-            this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+            this.ctx.arc(this.x* scale, this.y* scale, this.radius* scale, 0, Math.PI * 2, false);
             this.ctx.fillStyle = this.color;
             this.ctx.fill();
     }

@@ -41,7 +41,7 @@ class Settings
                     注册
                 </div>
 
-                <br> <!--这里一定要加上，不然一键登录图标不会居中，前面两行是inline的样式，可能会有bug-->
+                <br> 
                 <div class="ac-game-settings-acwing">
                     <img width="30" src="https://cdn.acwing.com/media/article/image/2021/11/18/1_ea3d5e7448-logo64x64_2.png" > 
                     <br>
@@ -89,7 +89,7 @@ class Settings
                     登录
                 </div>
 
-                <br> <!--这里一定要加上，不然一键登录图标不会居中，前面两行是inline的样式，可能会有bug-->
+                <br> 
                 <div class="ac-game-settings-acwing">
                     <img width="30" src="https://cdn.acwing.com/media/article/image/2021/11/18/1_ea3d5e7448-logo64x64_2.png" > 
                     <br>
@@ -164,8 +164,6 @@ acwing_login() {
         url: "https://app946.acapp.acwing.com.cn/settings/acwing/web/apply_code/",
         type: "GET",
         success: function(resp) {
-            console.log("called from acwing-login-function");
-            console.log(resp);
             if (resp.result === "success") {
                 window.location.replace(resp.apply_code_url);
             }
@@ -203,7 +201,7 @@ login_on_remote() // 在远程服务器上登录
             password: password, 
         },
         success: function(resp){
-            console.log(resp); // 测试输出
+
             if (resp.result === "success")
             {
                 location.reload(); // 如果成功了就刷新
@@ -234,7 +232,7 @@ register_on_remote()
             password_confirm: password_confirm,
         },
         success: function(resp){
-            console.log(resp);
+
             if (resp.result === "success")
             {
                 location.reload(); // 刷新网页
@@ -249,19 +247,21 @@ register_on_remote()
 
 logout_on_remote() // 在远程服务器上登出
 {
-    if (this.platform === "ACAPP") return false; // 如果在ACAPP退出就直接退出
-
+    if (this.platform === "ACAPP") {
+        this.root.AcWingOS.api.window.close();
+    } // 如果在ACAPP退出就直接退出
+else{
     $.ajax({
         url: "https://app946.acapp.acwing.com.cn/settings/logout/",
         type: "GET",
         success: function(resp){
-            console.log(resp); // 测试输出
             if (resp.result === "success")
             {
                 location.reload(); // 如果成功了就直接刷新
             }
         }
     });
+}
 }
 
 
@@ -321,7 +321,7 @@ logout_on_remote() // 在远程服务器上登出
                 platform: outer.platform, // 平台信息
             },
             success: function(resp){ // resp是发送请求之后返回的响应 (就是view里面返回的字典)
-                console.log(resp); // 测试，成功之后写入下面的
+
                 if (resp.result === "success")
                 {
                     outer.username=resp.username;
